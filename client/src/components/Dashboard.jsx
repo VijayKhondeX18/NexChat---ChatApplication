@@ -1,45 +1,66 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import socket from "../services/socket";
+import Left from "../left/Left";
+import Right from "../right/Right";
 
 const Dashboard = () => {
-  const [profile, setProfile] = useState({});
-  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const navigate = useNavigate();
+
+  const userString = localStorage.getItem("user");
+  const token = localStorage.getItem("token");
+  const user = userString ? JSON.parse(userString) : null;
+
   useEffect(() => {
+    if (!user || !token) {
+      navigate("/login");
+      return;
+    }
 
-    const token = localStorage.getItem("token");
-    axios.get("http://localhost:3000/api/users/profile", {
-      headers: {
-        Authorization: `Bearer ${token}`
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const onConnect = () => {
+      console.log("Socket connected:", socket.id);
+      if (user?._id) {
+        socket.emit("join", user._id);
       }
-    }).then(res => setProfile(res.data));
+    };
 
-    axios.get("http://localhost:3000/api/users", {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    }).then(res => setUsers(res.data));
+    socket.on("connect", onConnect);
 
-  }, []);
+    if (socket.connected && user?._id) {
+      socket.emit("join", user._id);
+    }
+
+    return () => {
+      socket.off("connect", onConnect);
+    };
+  }, [user?._id, token, navigate]);
+
+  if (!user) {
+    return null;
+  }
 
   return (
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-950">
+      <Left
+        user={user}
+        selectedUser={selectedUser}
+        setSelectedUser={setSelectedUser}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+      />
 
-    <div>
-
-      <h2>Welcome {profile.name}</h2>
-      <h3>Users</h3>
-
-      {
-        users.map(user => (
-
-          <div key={user._id}>
-            {user.name}
-          </div>
-
-        ))
-      }
+      <Right
+        user={user}
+        selectedUser={selectedUser}
+      />
     </div>
+  );
+};
 
-  )
-}
-
-export default Dashboard
+export default Dashboard;
