@@ -1,36 +1,60 @@
 const express = require("express");
+const http = require("http");
+const cors = require("cors");
+const { Server } = require("socket.io");
 const dotenv = require("dotenv");
+
 const connectDB = require("./db/db");
+
 const authRoutes = require("./routes/auth.routes");
-const userRoutes = require("./routes/Users.routes");
+const userRoutes = require("./routes/user.routes");
+const messageRoutes = require("./routes/message.routes");
+
+dotenv.config();
+
+connectDB();
 
 const app = express();
 
-app.use(express.json());
-const cors = require("cors");
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  process.env.CLIENT_URL,
+].filter(Boolean);
 
-// Home route
-app.get("/", (req, res) => {
-  res.send("Hello World!");
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
+
+app.use(express.json());
+
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+  },
 });
 
-// Auth routes
 app.use("/chatApp/auth", authRoutes);
-console.log("User routes loaded");
 app.use("/chatApp/users", userRoutes);
-const PORT = process.env.PORT || 3000;
+app.use("/chatApp/messages", messageRoutes);
 
-const startServer = async () => {
-  try {
-    await connectDB();
+require("./sockets/socket")(io);
 
-    app.listen(PORT, () => {
-      console.log(`Server is running at http://localhost:${PORT}`);
-    });
-  } catch (error) {
-    console.error("Database connection failed:", error);
-  }
-};
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "NexChat server is running",
+  });
+});
 
-startServer();
+const PORT = process.env.PORT || 5000;
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+});

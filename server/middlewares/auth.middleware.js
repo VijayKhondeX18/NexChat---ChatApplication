@@ -1,22 +1,34 @@
 const jwt = require("jsonwebtoken");
-const dotenv = require("dotenv");
-dotenv.config({ path: "./.env" });
+const User = require("../models/user.model");
 
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
- console.log("AUTH HEADER:", authHeader);
-  if (!token) {
-    return res.status(401).json({ message: "Access token required" });
-  }
+const authenticateToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(" ")[1];
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: "Invalid or expired token" });
+    if (!token) {
+      return res.status(401).json({
+        message: "Access token required",
+      });
     }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decoded.userId).select("-password");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
     req.user = user;
     next();
-  });
+  } catch (err) {
+    return res.status(403).json({
+      message: "Invalid or expired token",
+    });
+  }
 };
 
 module.exports = { authenticateToken };
