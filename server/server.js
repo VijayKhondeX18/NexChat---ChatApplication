@@ -15,29 +15,41 @@ dotenv.config();
 connectDB();
 
 const app = express();
-
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
-console.log("Allowed CORS origins:", allowedOrigins);
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+
+  // Exact allowed origins
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  // Allow Vercel deployments for this project
+  if (
+    /^https:\/\/nex-chat-chat-application(?:-git-[a-z0-9-]+)?-vijays-projects-5409118\.vercel\.app$/.test(
+      origin
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+};
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (Postman, server-to-server, etc.)
-      if (!origin) {
-        return callback(null, true);
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+      } else {
+        console.log("CORS blocked origin:", origin);
+        callback(new Error("Not allowed by CORS"));
       }
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.log("CORS blocked origin:", origin);
-      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
@@ -49,7 +61,14 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+      } else {
+        console.log("Socket CORS blocked origin:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   },
 });
