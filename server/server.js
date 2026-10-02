@@ -1,4 +1,3 @@
-
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
@@ -15,26 +14,25 @@ dotenv.config();
 
 const app = express();
 
-// ===============================
-// CORS CONFIGURATION
-// ===============================
+// =====================================
+// CORS
+// =====================================
 
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
 
-  // Vercel frontend
+  // Vercel production domain
+  "https://nex-chat-chat-application.vercel.app",
+
+  // Current Vercel project domain
   "https://nex-chat-chat-application-vijays-projects-5409118.vercel.app",
 
   // Render environment variable
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
-console.log("Allowed CORS origins:", allowedOrigins);
-
 const isAllowedOrigin = (origin) => {
-  // Allow requests without an Origin header
-  // (Postman, server-to-server requests, etc.)
   if (!origin) {
     return true;
   }
@@ -44,21 +42,15 @@ const isAllowedOrigin = (origin) => {
     return true;
   }
 
-  // Allow Vercel deployment/preview URLs for this project
+  // Vercel preview/deployment URLs
   if (
-    /^https:\/\/nex-chat-chat-application(?:-[a-z0-9-]+)?-vijays-projects-5409118\.vercel\.app$/.test(
-      origin
-    )
+    /^https:\/\/nex-chat-chat-application.*\.vercel\.app$/.test(origin)
   ) {
     return true;
   }
 
   return false;
 };
-
-// ===============================
-// EXPRESS CORS
-// ===============================
 
 app.use(
   cors({
@@ -78,56 +70,49 @@ app.use(
   })
 );
 
-// Handle preflight requests
-app.options("*", cors());
-
-// ===============================
-// BODY PARSER
-// ===============================
-
 app.use(express.json());
 
-// ===============================
-// DATABASE
-// ===============================
-
-connectDB();
-
-// ===============================
+// =====================================
 // HTTP SERVER
-// ===============================
+// =====================================
 
 const server = http.createServer(app);
 
-// ===============================
+// =====================================
 // SOCKET.IO
-// ===============================
+// =====================================
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+      } else {
+        console.log("Socket CORS blocked origin:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
-    methods: ["GET", "POST"],
   },
 });
 
-// ===============================
+// =====================================
 // API ROUTES
-// ===============================
+// =====================================
 
 app.use("/chatApp/auth", authRoutes);
 app.use("/chatApp/users", userRoutes);
 app.use("/chatApp/messages", messageRoutes);
 
-// ===============================
-// SOCKET.IO EVENTS
-// ===============================
+// =====================================
+// SOCKETS
+// =====================================
 
 require("./sockets/socket")(io);
 
-// ===============================
+// =====================================
 // HEALTH CHECK
-// ===============================
+// =====================================
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -136,9 +121,9 @@ app.get("/", (req, res) => {
   });
 });
 
-// ===============================
-// 404 HANDLER
-// ===============================
+// =====================================
+// 404
+// =====================================
 
 app.use((req, res) => {
   res.status(404).json({
@@ -148,9 +133,9 @@ app.use((req, res) => {
   });
 });
 
-// ===============================
+// =====================================
 // ERROR HANDLER
-// ===============================
+// =====================================
 
 app.use((err, req, res, next) => {
   console.error("Server error:", err.message);
@@ -168,9 +153,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ===============================
+// =====================================
 // START SERVER
-// ===============================
+// =====================================
 
 const PORT = process.env.PORT || 5000;
 
